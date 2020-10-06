@@ -1,0 +1,183 @@
+<html>
+
+<body>
+    <div>
+        <button type="button" class="btn" onclick="drawOriginalFigure()">Form</button>
+    </div>
+    <div>
+        <input type="range" min="0" max="7" step="1" value="0" oninput="nextStep(this.value)"
+            onchange="nextStep(this.value)">
+    </div>
+    <div>
+        <button type="button" class="btn" onclick="animation1()">1</button>
+        <button type="button" class="btn" onclick="animation2()">2</button>
+        <button type="button" class="btn" onclick="animation3()">3</button>
+        <button type="button" class="btn" onclick="animation4()">4</button>
+    </div>
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <script>
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext("2d");
+        drawBorder();
+        function drawBorder() {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(500, 0);
+            ctx.lineTo(500, 500);
+            ctx.lineTo(0, 500);
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function drawOriginalFigure() {
+            ctx.fillStyle = "#009900";
+            drawFigure();
+            drawBorder();
+        }
+        function drawFigure() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, 250);
+            ctx.lineTo(300, 250);
+            ctx.lineTo(300, 500);
+            ctx.lineTo(500, 500);
+            ctx.lineTo(500, 0);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function nextStep(step = 0, color = null) {
+            var getColor = false;
+            if (step > 0) {
+                if (color) {
+                    getColor = true;
+                }
+                step--;
+                ctx.save();
+                ctx.transform(0, 0.5, -0.5, 0, 250, 0);
+                if (!getColor) {
+                    color = "#EE82EE";
+                }
+                ctx.fillStyle = color;
+                nextStep(step, color);
+                ctx.restore();
+                ctx.save();
+                ctx.transform(0.5, 0, 0, 0.5, 250, 0);
+                if (!getColor) {
+                    color = "#32CD32";
+                }
+                ctx.fillStyle = color;
+                nextStep(step, color);
+                ctx.restore();
+                ctx.save();
+                ctx.transform(0.5, 0, 0, 0.5, 0, 250);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+                ctx.save();
+                ctx.transform(0, 0.25, 0.25, 0, 0, 250);
+                if (!getColor) {
+                    color = "#00BFFF";
+                }
+                ctx.fillStyle = color;
+                nextStep(step, color);
+                ctx.restore();
+                ctx.save();
+                ctx.transform(0.5, 0, 0, -0.5, 250, 500);
+                if (!getColor) {
+                    color = "#FF7F50";
+                }
+                ctx.fillStyle = color;
+                nextStep(step, color);
+                ctx.restore();
+            }
+            else {
+                drawFigure();
+            }
+        }
+
+        function animation1() {
+            ctx.fillStyle = "#EE82EE";
+            drawAnimation(animationNumber = 1,
+                rotationStepSize = 0.02,
+                xStepLength = 5,
+                yStepLength = 0,
+                scaleStepSize = 0.01);
+        }
+        function animation2() {
+            ctx.fillStyle = "#32CD32";
+            drawAnimation(animationNumber = 2,
+                rotationStepSize = 0,
+                xStepLength = 5,
+                yStepLength = 0,
+                scaleStepSize = 0.01);
+        }
+        function animation3() {
+            ctx.fillStyle = "#00BFFF";
+            drawAnimation(animationNumber = 3,
+                rotationStepSize = 0.02,
+                xStepLength = 0,
+                yStepLength = 5,
+                scaleStepSize = 0.015);
+        }
+        function animation4() {
+            ctx.fillStyle = "#FF7F50";
+            drawAnimation(animationNumber = 4,
+                rotationStepSize = 0,
+                xStepLength = 5,
+                yStepLength = 10,
+                scaleStepSize = 0.01);
+        }
+
+        function drawAnimation(animationNumber, rotationStepSize, xStepLength, yStepLength, scaleStepSize) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            var stepCounter = 0;
+            var mirrorStepSize = 0.04;
+            var inter = setInterval(drawTransformation, 50);
+
+            function drawTransformation() {
+                ctx.save();
+                ctx.clearRect(0, 0, 500, 500);
+                drawBorder();
+
+                switch (animationNumber) {
+                    case 1:
+                        ctx.translate(stepCounter * xStepLength, 0);
+                        ctx.rotate(stepCounter * rotationStepSize * Math.PI / 2);
+                        ctx.scale(1 - stepCounter * scaleStepSize, 1 - stepCounter * scaleStepSize);
+                        break;
+                    case 2:
+                        ctx.translate(stepCounter * xStepLength, 0);
+                        ctx.scale(1 - stepCounter * scaleStepSize, 1 - stepCounter * scaleStepSize);
+                        break;
+                    case 3:
+                        ctx.translate(0, stepCounter * yStepLength);
+                        ctx.rotate(stepCounter * rotationStepSize * Math.PI / 2);
+                        ctx.scale(1 - stepCounter * scaleStepSize, 1 - stepCounter * scaleStepSize);
+                        ctx.scale(1, 1 - stepCounter * mirrorStepSize);
+                        break;
+                    case 4:
+                        ctx.translate(stepCounter * xStepLength, stepCounter * yStepLength);
+                        ctx.scale(1 - stepCounter * scaleStepSize, 1 - stepCounter * scaleStepSize);
+                        ctx.scale(1, 1 - stepCounter * mirrorStepSize);
+                        break;
+                }
+
+                drawFigure();
+                ctx.restore();
+
+                if (stepCounter == 50) {
+                    clearInterval(inter);
+                    inter = 0;
+                }
+                else {
+                    stepCounter++;
+                }
+            }
+        }
+
+    </script>
+</body>
+
+</html>
