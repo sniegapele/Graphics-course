@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Stairs</title>
+    <script type="text/javascript" src="three.js"></script>
+    <script type="text/javascript" src="jquery-1.9.0.js"></script>
+    <script src="TrackballControls.js"></script>
+    <!-- <script type="text/javascript" src="../libs/stats.js"></script> -->
+    <script type="text/javascript" src="dat.gui.js"></script>
+    <style>
+        body {
+            /* set margin to 0 and overflow to hidden, to go fullscreen */
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<div id="WebGL-output">
+</div>
+
+<!-- Javascript code that runs our Three.js examples -->
+<script type="text/javascript">
+    // once everything is loaded, we run our Three.js stuff.
+    $(function () {
+        //constants
+        HEIGHT = 15;
+        STAIR_HEIGHT = 0.5;
+        STAIR_WIDTH = 10;
+        STAIR_DEPTH = 4;
+
+        CYLINDER_HEIGHT = 4;
+        CYLINDER_D = 0.2;
+
+        // create a scene, that will hold all our elements such as objects, cameras and lights.
+        var scene = new THREE.Scene();
+
+        // create a camera, which defines where we're looking at.
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        // create a render and set the size
+        var renderer = new THREE.WebGLRenderer();
+
+        renderer.setClearColor(0xEEEEEE, 1.0);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMapEnabled = true;
+
+        // var axes = new THREE.AxesHelper(20);
+        // scene.add(axes);
+
+        // first floor
+        var firstFloorGeometry = new THREE.PlaneGeometry(45, 30);
+        var firstFloorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDAB9, side: THREE.DoubleSide });
+        var firstFloor = new THREE.Mesh(firstFloorGeometry, firstFloorMaterial);
+        firstFloor.receiveShadow = true;
+        firstFloor.rotation.x = -0.5 * Math.PI;
+        firstFloor.position.x = 0;
+        firstFloor.position.y = 0;
+        firstFloor.position.z = 0;
+        scene.add(firstFloor);
+
+        // second floor
+        var secondFloorGeometry = new THREE.PlaneGeometry(20, 30);
+        var secondFloorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDAB9, side: THREE.DoubleSide });
+        var secondFloor = new THREE.Mesh(secondFloorGeometry, secondFloorMaterial);
+        secondFloor.receiveShadow = true;
+        secondFloor.rotation.x = -0.5 * Math.PI;
+        secondFloor.position.x = 10;
+        secondFloor.position.y = HEIGHT;
+        secondFloor.position.z = 0;
+        secondFloorMaterial.opacity = 0.6;
+        secondFloorMaterial.transparent = 0.6;
+        scene.add(secondFloor);
+
+        var ambiColor = "#0c0c0c";
+        var ambientLight = new THREE.AmbientLight(ambiColor);
+        scene.add(ambientLight);
+        // add spotlight for a bit of light
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(-40, 30, 0);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+        // position and point the camera to the center of the scene
+        camera.position.x = -30;
+        camera.position.y = 40;
+        camera.position.z = 30;
+        camera.lookAt(scene.position);
+
+        // add the output of the renderer to the html element
+        $("#WebGL-output").append(renderer.domElement);
+
+        extrudeSettings = {
+            steps: 1,
+            depth: STAIR_HEIGHT,
+            bevelEnabled: true,
+            bevelThickness: 0.25,
+            bevelSize: 0.2,
+            // bevelSegments: 1,
+        }
+        leftStep = drawLeftStep();
+        boxLeftGeometry = new THREE.ExtrudeGeometry(leftStep, extrudeSettings);
+        rightStep = drawRightStep();
+        boxRightGeometry = new THREE.ExtrudeGeometry(rightStep, extrudeSettings);
+        boxMaterial = new THREE.MeshLambertMaterial({ color: 0xDEB887 });
+
+        cylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, CYLINDER_HEIGHT, 10);
+        cylinderMaterial = new THREE.MeshPhongMaterial({ color: 0xC0C0C0 });
+
+        currentNumberOfStairs = 10;
+        currentRotation = 90;
+        currentFromCenter = 2;
+        createStairs();
+
+        var controls = new function () {
+            this.number_of_stairs = 10;
+            this.rotation = 180;
+            this.from_center = 2;
+        }
+
+        var gui = new dat.GUI();
+        gui.add(controls, 'number_of_stairs', 10, 20);
+        gui.add(controls, 'rotation', 90, 270);
+        gui.add(controls, 'from_center', 1, 10);
+
+        // track-ball camera controls
+        camControls = new THREE.TrackballControls(camera, renderer.domElement);
+
+        // render the scene
+        render();
+
+        function render() {
+            renderer.render(scene, camera);
+            generateNewStairs();
+            requestAnimationFrame(render);
+            camControls.update();
+        };
+
+        function generateNewStairs() {
+            if (currentNumberOfStairs != controls.number_of_stairs ||
+                currentRotation != controls.rotation || currentFromCenter != controls.from_center) {
+                removeOldStairs();
+                currentNumberOfStairs = Math.floor(controls.number_of_stairs);
+                currentFromCenter = controls.from_center;
+                currentRotation = controls.rotation;
+                createStairs();
+            }
+        };
+
+        function removeOldStairs() {
+            //stairs + 2 tubes
+            for (i = 0; i < currentNumberOfStairs + 2; i++) {
+                var allChildren = scene.children;
+                var lastObject = allChildren[allChildren.length - 1];
+                scene.remove(lastObject);
+            }
+        };
+
+        function createStairs() {
+            var pointsLeft = [];
+            var pointsRight = [];
+            forOneStep = HEIGHT / (currentNumberOfStairs - 1);
+            smallCylinderHeight = forOneStep - STAIR_HEIGHT;
+            smallCylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, smallCylinderHeight, 10);
+            // lyingCylinderHeight = 2;
+            // lyingCylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, lyingCylinderHeight, 10);
+            var lyingBoxGeometry;
+            if (currentRotation < 130) {
+                lyingBoxGeometry = new THREE.BoxGeometry(CYLINDER_HEIGHT / 2, CYLINDER_D, CYLINDER_D);
+            }
+            else {
+                lyingBoxGeometry = new THREE.BoxGeometry(CYLINDER_HEIGHT, CYLINDER_D, CYLINDER_D);
+            }
+            lyingBoxMaterial = cylinderMaterial;
+            for (i = 0; i < currentNumberOfStairs; i++) {
+                if (i % 2 == 0) {
+                    box = new THREE.Mesh(boxLeftGeometry, boxMaterial);
+                } else {
+                    box = new THREE.Mesh(boxRightGeometry, boxMaterial);
+                }
+                box.castShadow = true;
+                box.position.x = STAIR_DEPTH;
+                box.position.z = currentFromCenter;
+                box.rotation.x = Math.PI / 2;
+                box.rotation.z = Math.PI / 2;
+
+                smallCylinder = new THREE.Mesh(smallCylinderGeometry, cylinderMaterial);
+                smallCylinder.castShadow = true;
+                smallCylinder.position.x = STAIR_DEPTH / 4;
+                smallCylinder.position.y = smallCylinderHeight / 2 + STAIR_HEIGHT / 2;
+                smallCylinder.position.z = currentFromCenter + STAIR_WIDTH / 2
+
+                lyingBox = new THREE.Mesh(lyingBoxGeometry, lyingBoxMaterial);
+                lyingBox.castShadow = true;
+                lyingBox.position.x = CYLINDER_HEIGHT / 2 + CYLINDER_HEIGHT / 4;
+                lyingBox.position.y = smallCylinderHeight + STAIR_HEIGHT / 2;
+                lyingBox.position.z = STAIR_WIDTH / 2 + currentFromCenter;
+
+                rightCylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                rightCylinder.castShadow = true;
+                rightCylinder.position.x = STAIR_DEPTH / 4;
+                rightCylinder.position.y = -(CYLINDER_HEIGHT / 2 + STAIR_HEIGHT / 2);
+                rightCylinder.position.z = STAIR_WIDTH + currentFromCenter + CYLINDER_D;
+
+                var rotation = (currentRotation / (currentNumberOfStairs - 1)) * Math.PI / 180 * (currentNumberOfStairs - i - 1);
+                var x = (currentFromCenter + STAIR_WIDTH + CYLINDER_D) * -Math.sin(rotation);
+                z = Math.sqrt(Math.pow((currentFromCenter + STAIR_WIDTH + CYLINDER_D / 2), 2) - Math.pow(x, 2));
+                if (!(rotation <= Math.PI / 2 && rotation >= -Math.PI / 2)) {
+                    z *= -1;
+                }
+                pointsRight.push(new THREE.Vector3(x, (i - 1) * forOneStep + CYLINDER_HEIGHT + STAIR_HEIGHT * 2, z));
+
+                leftCylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                leftCylinder.castShadow = true;
+                leftCylinder.position.x = STAIR_DEPTH / 4;
+                leftCylinder.position.y = -(CYLINDER_HEIGHT / 2 + STAIR_HEIGHT / 2);
+                leftCylinder.position.z = currentFromCenter - CYLINDER_D;
+
+                x = (currentFromCenter + CYLINDER_D) * -Math.sin(rotation);
+                z = Math.sqrt(Math.pow((currentFromCenter + CYLINDER_D), 2) - Math.pow(x, 2));
+                if (!(rotation <= Math.PI / 2 && rotation >= -Math.PI / 2)) {
+                    z *= -1;
+                }
+                pointsLeft.push(new THREE.Vector3(x, (i - 1) * forOneStep + CYLINDER_HEIGHT + STAIR_HEIGHT * 2, z));
+
+                step = new THREE.Object3D();
+                step.add(box);
+                step.add(rightCylinder);
+                step.add(leftCylinder);
+                step.add(smallCylinder);
+                if (i != 0) {
+                    step.add(lyingBox);
+                }
+
+                // var frameGeometry = new THREE.CubeGeometry(2 * STAIR_DEPTH, STAIR_HEIGHT, 2 * STAIR_WIDTH)//(2*7,STAIR_HEIGHT,2*STAIR_WIDTH);
+                // var frameMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, wireframe: true });
+                // frame = new THREE.Mesh(frameGeometry, frameMaterial);
+                // step.add(frame);
+
+                step.position.y = (HEIGHT / currentNumberOfStairs) * (i + 1) - STAIR_HEIGHT * 1.5;
+                step.rotation.z = Math.PI;
+                step.rotation.y = -(currentRotation / currentNumberOfStairs) * Math.PI / 180 * (currentNumberOfStairs - i - 1);
+
+                // var frameGeometry = new THREE.CubeGeometry(2 * STAIR_DEPTH, STAIR_HEIGHT, 2 * STAIR_WIDTH);
+                // var frameMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, wireframe: true });
+                // frame = new THREE.Mesh(frameGeometry, frameMaterial);
+                // step.add(frame);
+                // step.castShadow = true;
+                scene.add(step);
+            }
+            // console.log(pointsRight);
+            rightTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsRight), 10, CYLINDER_D, 10, closed = false);
+            rightTube = new THREE.Mesh(rightTubeGeometry, cylinderMaterial);
+            scene.add(rightTube);
+
+            leftTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsLeft), 10, CYLINDER_D, 10, closed = false);
+            leftTube = new THREE.Mesh(leftTubeGeometry, cylinderMaterial);
+            scene.add(leftTube);
+        };
+
+        function drawLeftStep() {
+            shape = new THREE.Shape();
+
+            shape.moveTo(0, 0);
+            shape.lineTo(0, STAIR_DEPTH);
+            shape.lineTo(STAIR_WIDTH, STAIR_DEPTH);
+            shape.lineTo(STAIR_WIDTH, STAIR_DEPTH / 2);
+            shape.lineTo(0, 0);
+
+            return shape;
+        };
+
+        function drawRightStep() {
+            shape = new THREE.Shape();
+
+            shape.moveTo(0, STAIR_DEPTH / 2);
+            shape.lineTo(0, STAIR_DEPTH);
+            shape.lineTo(STAIR_WIDTH, STAIR_DEPTH);
+            shape.lineTo(STAIR_WIDTH, 0);
+            shape.lineTo(0, STAIR_DEPTH / 2);
+
+            return shape;
+        };
+
+    });
+
+</script>
+</body>
+
+</html>
+
+</html>
