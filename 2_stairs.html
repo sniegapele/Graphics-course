@@ -27,12 +27,14 @@
     $(function () {
         //constants
         HEIGHT = 15;
-        STAIR_HEIGHT = 0.5;
+        STAIR_HEIGHT = 0.25;
         STAIR_WIDTH = 10;
         STAIR_DEPTH = 4;
 
         CYLINDER_HEIGHT = 4;
         CYLINDER_D = 0.2;
+
+        TUBE_SEGMENTS = 150;
 
         // create a scene, that will hold all our elements such as objects, cameras and lights.
         var scene = new THREE.Scene();
@@ -51,7 +53,7 @@
         // scene.add(axes);
 
         // first floor
-        var firstFloorGeometry = new THREE.PlaneGeometry(45, 30);
+        var firstFloorGeometry = new THREE.PlaneGeometry(45, 45);
         var firstFloorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDAB9, side: THREE.DoubleSide });
         var firstFloor = new THREE.Mesh(firstFloorGeometry, firstFloorMaterial);
         firstFloor.receiveShadow = true;
@@ -62,16 +64,14 @@
         scene.add(firstFloor);
 
         // second floor
-        var secondFloorGeometry = new THREE.PlaneGeometry(20, 30);
-        var secondFloorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDAB9, side: THREE.DoubleSide });
+        var secondFloorGeometry = new THREE.PlaneGeometry(20, 45);
+        var secondFloorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDAB9, side: THREE.DoubleSide, opacity: 0.6, transparent: true });
         var secondFloor = new THREE.Mesh(secondFloorGeometry, secondFloorMaterial);
         secondFloor.receiveShadow = true;
         secondFloor.rotation.x = -0.5 * Math.PI;
         secondFloor.position.x = 10;
         secondFloor.position.y = HEIGHT;
         secondFloor.position.z = 0;
-        secondFloorMaterial.opacity = 0.6;
-        secondFloorMaterial.transparent = 0.6;
         scene.add(secondFloor);
 
         var ambiColor = "#0c0c0c";
@@ -98,7 +98,7 @@
             bevelEnabled: true,
             bevelThickness: 0.25,
             bevelSize: 0.2,
-            // bevelSegments: 1,
+            bevelSegments: 1,
         }
         leftStep = drawLeftStep();
         boxLeftGeometry = new THREE.ExtrudeGeometry(leftStep, extrudeSettings);
@@ -108,6 +108,7 @@
 
         cylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, CYLINDER_HEIGHT, 10);
         cylinderMaterial = new THREE.MeshPhongMaterial({ color: 0xC0C0C0 });
+        sphereGeometry = new THREE.SphereGeometry(2 * CYLINDER_D, 20, 20);
 
         currentNumberOfStairs = 10;
         currentRotation = 90;
@@ -116,13 +117,13 @@
 
         var controls = new function () {
             this.number_of_stairs = 10;
-            this.rotation = 180;
+            this.rotation = 165;
             this.from_center = 2;
         }
 
         var gui = new dat.GUI();
-        gui.add(controls, 'number_of_stairs', 10, 20);
-        gui.add(controls, 'rotation', 90, 270);
+        gui.add(controls, 'number_of_stairs', 10, 30);
+        gui.add(controls, 'rotation', 165, 360);
         gui.add(controls, 'from_center', 1, 10);
 
         // track-ball camera controls
@@ -163,17 +164,12 @@
             var pointsRight = [];
             forOneStep = HEIGHT / (currentNumberOfStairs - 1);
             smallCylinderHeight = forOneStep - STAIR_HEIGHT;
-            smallCylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, smallCylinderHeight, 10);
-            // lyingCylinderHeight = 2;
-            // lyingCylinderGeometry = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, lyingCylinderHeight, 10);
-            var lyingBoxGeometry;
-            if (currentRotation < 130) {
-                lyingBoxGeometry = new THREE.BoxGeometry(CYLINDER_HEIGHT / 2, CYLINDER_D, CYLINDER_D);
-            }
-            else {
-                lyingBoxGeometry = new THREE.BoxGeometry(CYLINDER_HEIGHT, CYLINDER_D, CYLINDER_D);
-            }
-            lyingBoxMaterial = cylinderMaterial;
+            smallCylinderGeometryFirst = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, smallCylinderHeight - STAIR_HEIGHT / 2, 10);
+            smallCylinderGeometryOthers = new THREE.CylinderGeometry(CYLINDER_D, CYLINDER_D, smallCylinderHeight, 10);
+
+            forOneStepLenght = (2 * Math.PI * currentFromCenter * currentRotation / 360) / currentNumberOfStairs + STAIR_DEPTH;
+            lyingBoxGeometry = new THREE.BoxGeometry(forOneStepLenght, CYLINDER_D, CYLINDER_D);
+
             for (i = 0; i < currentNumberOfStairs; i++) {
                 if (i % 2 == 0) {
                     box = new THREE.Mesh(boxLeftGeometry, boxMaterial);
@@ -186,16 +182,21 @@
                 box.rotation.x = Math.PI / 2;
                 box.rotation.z = Math.PI / 2;
 
-                smallCylinder = new THREE.Mesh(smallCylinderGeometry, cylinderMaterial);
+                if (i == 0) {
+                    smallCylinder = new THREE.Mesh(smallCylinderGeometryFirst, cylinderMaterial);
+                    smallCylinder.position.y = (smallCylinderHeight - STAIR_HEIGHT / 2) / 2;
+                } else {
+                    smallCylinder = new THREE.Mesh(smallCylinderGeometryOthers, cylinderMaterial);
+                    smallCylinder.position.y = smallCylinderHeight / 2;
+                }
                 smallCylinder.castShadow = true;
                 smallCylinder.position.x = STAIR_DEPTH / 4;
-                smallCylinder.position.y = smallCylinderHeight / 2 + STAIR_HEIGHT / 2;
                 smallCylinder.position.z = currentFromCenter + STAIR_WIDTH / 2
 
-                lyingBox = new THREE.Mesh(lyingBoxGeometry, lyingBoxMaterial);
+                lyingBox = new THREE.Mesh(lyingBoxGeometry, cylinderMaterial);
                 lyingBox.castShadow = true;
-                lyingBox.position.x = CYLINDER_HEIGHT / 2 + CYLINDER_HEIGHT / 4;
-                lyingBox.position.y = smallCylinderHeight + STAIR_HEIGHT / 2;
+                lyingBox.position.x = forOneStepLenght / 2 + STAIR_DEPTH / 4;
+                lyingBox.position.y = smallCylinderHeight;
                 lyingBox.position.z = STAIR_WIDTH / 2 + currentFromCenter;
 
                 rightCylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
@@ -204,26 +205,11 @@
                 rightCylinder.position.y = -(CYLINDER_HEIGHT / 2 + STAIR_HEIGHT / 2);
                 rightCylinder.position.z = STAIR_WIDTH + currentFromCenter + CYLINDER_D;
 
-                var rotation = (currentRotation / (currentNumberOfStairs - 1)) * Math.PI / 180 * (currentNumberOfStairs - i - 1);
-                var x = (currentFromCenter + STAIR_WIDTH + CYLINDER_D) * -Math.sin(rotation);
-                z = Math.sqrt(Math.pow((currentFromCenter + STAIR_WIDTH + CYLINDER_D / 2), 2) - Math.pow(x, 2));
-                if (!(rotation <= Math.PI / 2 && rotation >= -Math.PI / 2)) {
-                    z *= -1;
-                }
-                pointsRight.push(new THREE.Vector3(x, (i - 1) * forOneStep + CYLINDER_HEIGHT + STAIR_HEIGHT * 2, z));
-
                 leftCylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
                 leftCylinder.castShadow = true;
                 leftCylinder.position.x = STAIR_DEPTH / 4;
                 leftCylinder.position.y = -(CYLINDER_HEIGHT / 2 + STAIR_HEIGHT / 2);
                 leftCylinder.position.z = currentFromCenter - CYLINDER_D;
-
-                x = (currentFromCenter + CYLINDER_D) * -Math.sin(rotation);
-                z = Math.sqrt(Math.pow((currentFromCenter + CYLINDER_D), 2) - Math.pow(x, 2));
-                if (!(rotation <= Math.PI / 2 && rotation >= -Math.PI / 2)) {
-                    z *= -1;
-                }
-                pointsLeft.push(new THREE.Vector3(x, (i - 1) * forOneStep + CYLINDER_HEIGHT + STAIR_HEIGHT * 2, z));
 
                 step = new THREE.Object3D();
                 step.add(box);
@@ -233,29 +219,42 @@
                 if (i != 0) {
                     step.add(lyingBox);
                 }
-
-                // var frameGeometry = new THREE.CubeGeometry(2 * STAIR_DEPTH, STAIR_HEIGHT, 2 * STAIR_WIDTH)//(2*7,STAIR_HEIGHT,2*STAIR_WIDTH);
-                // var frameMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, wireframe: true });
-                // frame = new THREE.Mesh(frameGeometry, frameMaterial);
-                // step.add(frame);
+                if (i == 0 || i == currentNumberOfStairs - 1) {
+                    sphere = new THREE.Mesh(sphereGeometry, cylinderMaterial);
+                    sphere.castShadow = true;
+                    sphere.position.x = rightCylinder.position.x;
+                    sphere.position.y = rightCylinder.position.y - CYLINDER_HEIGHT / 2;
+                    sphere.position.z = rightCylinder.position.z;
+                    step.add(sphere);
+                    sphere = new THREE.Mesh(sphereGeometry, cylinderMaterial);
+                    sphere.castShadow = true;
+                    sphere.position.x = leftCylinder.position.x;
+                    sphere.position.y = leftCylinder.position.y - CYLINDER_HEIGHT / 2;
+                    sphere.position.z = leftCylinder.position.z;
+                    step.add(sphere);
+                }
 
                 step.position.y = (HEIGHT / currentNumberOfStairs) * (i + 1) - STAIR_HEIGHT * 1.5;
                 step.rotation.z = Math.PI;
                 step.rotation.y = -(currentRotation / currentNumberOfStairs) * Math.PI / 180 * (currentNumberOfStairs - i - 1);
 
-                // var frameGeometry = new THREE.CubeGeometry(2 * STAIR_DEPTH, STAIR_HEIGHT, 2 * STAIR_WIDTH);
-                // var frameMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, wireframe: true });
-                // frame = new THREE.Mesh(frameGeometry, frameMaterial);
-                // step.add(frame);
-                // step.castShadow = true;
                 scene.add(step);
+                scene.updateMatrixWorld();
+                rightCoordinates = new THREE.Vector3();
+                rightCylinder.getWorldPosition(rightCoordinates);
+                rightCoordinates.setComponent(1, rightCoordinates.getComponent(1) + CYLINDER_HEIGHT / 2);
+                pointsRight.push(rightCoordinates);
+                leftCoordinates = new THREE.Vector3();
+                leftCylinder.getWorldPosition(leftCoordinates);
+                leftCoordinates.setComponent(1, leftCoordinates.getComponent(1) + CYLINDER_HEIGHT / 2)
+                pointsLeft.push(leftCoordinates);
             }
-            // console.log(pointsRight);
-            rightTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsRight), 10, CYLINDER_D, 10, closed = false);
+            rightTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsRight), TUBE_SEGMENTS, CYLINDER_D, 10, closed = false);
             rightTube = new THREE.Mesh(rightTubeGeometry, cylinderMaterial);
             scene.add(rightTube);
+            console.log(pointsRight);
 
-            leftTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsLeft), 10, CYLINDER_D, 10, closed = false);
+            leftTubeGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pointsLeft), TUBE_SEGMENTS, CYLINDER_D, 10, closed = false);
             leftTube = new THREE.Mesh(leftTubeGeometry, cylinderMaterial);
             scene.add(leftTube);
         };
@@ -267,7 +266,7 @@
             shape.lineTo(0, STAIR_DEPTH);
             shape.lineTo(STAIR_WIDTH, STAIR_DEPTH);
             shape.lineTo(STAIR_WIDTH, STAIR_DEPTH / 2);
-            shape.lineTo(0, 0);
+            shape.bezierCurveTo(STAIR_WIDTH, STAIR_DEPTH / 2, STAIR_WIDTH / 2, STAIR_DEPTH / 8 * 0.05, 0, 0);
 
             return shape;
         };
@@ -279,7 +278,7 @@
             shape.lineTo(0, STAIR_DEPTH);
             shape.lineTo(STAIR_WIDTH, STAIR_DEPTH);
             shape.lineTo(STAIR_WIDTH, 0);
-            shape.lineTo(0, STAIR_DEPTH / 2);
+            shape.bezierCurveTo(STAIR_WIDTH, 0, STAIR_WIDTH / 2, STAIR_DEPTH / 8 * 0.05, 0, STAIR_DEPTH / 2);
 
             return shape;
         };
