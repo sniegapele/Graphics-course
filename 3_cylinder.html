@@ -32,8 +32,7 @@
             // constants
             H = 40;
             R = 10;
-            NUMBER_OF_POINTS = 200;
-            MESH_NUMBER_OF_POINTS = 10;
+            NUMBER_OF_POINTS = 1000;
 
             // create a scene, that will hold all our elements such as objects, cameras and lights.
             var scene = new THREE.Scene();
@@ -72,11 +71,11 @@
 
             function generatePoints() {
                 var points = [];
-                r = R - 1;
+                //r = R - 1;
                 while (points.length != NUMBER_OF_POINTS) {
-                    var x = Math.random() * 2 * r - r;
+                    var x = Math.random() * 2 * R - R;
                     var y = Math.random() * H - H / 2;
-                    var z = Math.random() * 2 * r - r;
+                    var z = Math.random() * 2 * R - R;
                     if (x * x + z * z < R * R) { points.push(new THREE.Vector3(x, y, z)); }
                 }
 
@@ -90,60 +89,6 @@
                 });
                 // add the points as a group to the scene
                 scene.add(spGroup1);
-
-                var forMesh = [];
-                for (var i = 0; i < MESH_NUMBER_OF_POINTS; i++) {
-                    var x = Math.random() * R;
-                    var z = Math.sqrt(R * R - x * x);
-                    {
-                        forMesh.push(new THREE.Vector3(x, H / 2, z));
-                        forMesh.push(new THREE.Vector3(x, H / 2, -z));
-                        forMesh.push(new THREE.Vector3(x, -H / 2, z));
-                        forMesh.push(new THREE.Vector3(x, -H / 2, -z));
-                        forMesh.push(new THREE.Vector3(z, H / 2, x));
-                        forMesh.push(new THREE.Vector3(z, H / 2, -x));
-                        forMesh.push(new THREE.Vector3(z, -H / 2, x));
-                        forMesh.push(new THREE.Vector3(z, -H / 2, -x));
-
-                        forMesh.push(new THREE.Vector3(-x, H / 2, z));
-                        forMesh.push(new THREE.Vector3(-x, H / 2, -z));
-                        forMesh.push(new THREE.Vector3(-x, -H / 2, z));
-                        forMesh.push(new THREE.Vector3(-x, -H / 2, -z));
-                        forMesh.push(new THREE.Vector3(-z, H / 2, x));
-                        forMesh.push(new THREE.Vector3(-z, H / 2, -x));
-                        forMesh.push(new THREE.Vector3(-z, -H / 2, x));
-                        forMesh.push(new THREE.Vector3(-z, -H / 2, -x));
-                    }
-                }
-                {
-                    forMesh.push(new THREE.Vector3(0, H / 2, R));
-                    forMesh.push(new THREE.Vector3(0, H / 2, -R));
-                    forMesh.push(new THREE.Vector3(R, H / 2, 0));
-                    forMesh.push(new THREE.Vector3(-R, H / 2, 0));
-                    forMesh.push(new THREE.Vector3(0, -H / 2, R));
-                    forMesh.push(new THREE.Vector3(0, -H / 2, -R));
-                    forMesh.push(new THREE.Vector3(R, -H / 2, 0));
-                    forMesh.push(new THREE.Vector3(-R, -H / 2, 0));
-                    var ekstra = -0.0001;
-                    ekstraZ = Math.sqrt(R * R - ekstra * ekstra);
-                    forMesh.push(new THREE.Vector3(ekstra, H / 2, ekstraZ));
-                    forMesh.push(new THREE.Vector3(ekstra, -H / 2, ekstraZ));
-                }
-
-                spGroup2 = new THREE.Object3D();
-                var material2 = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: false });
-                forMesh.forEach(function (point) {
-                    var spGeom = new THREE.SphereGeometry(0.2);
-                    var spMesh = new THREE.Mesh(spGeom, material2);
-                    spMesh.position = point;
-                    spGroup2.add(spMesh);
-                });
-                scene.add(spGroup2);
-
-                //union
-                for (var i = 0; i < forMesh.length; i++) {
-                    points.push(forMesh[i]);
-                }
 
                 // use the same points to create a convexgeometry
                 var pointsGeometry = new THREE.ConvexGeometry(points);
@@ -161,7 +106,7 @@
             }
 
             function calculateUV(geometry) {
-                var EPSILON = 0.1;
+                var EPSILON = 0.5;
                 temp = [];
                 geometry.faces.forEach(function (face) {
                     var v1 = geometry.vertices[face.a];
@@ -193,7 +138,7 @@
             }
 
             function calculateV(y) {
-                return y > 0 ? y / H * 2 : 0;
+                return (y + H / 2) / H
             }
 
             function render() {
