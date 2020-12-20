@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Bokstas</title>
+    <script type="text/javascript" src="three.min.js"></script>
+    <script type="text/javascript" src="jquery-1.9.0.js"></script>
+    <script type="text/javascript" src="stats.js"></script>
+    <script type="text/javascript" src="dat.gui.js"></script>
+    <script type="text/javascript" src="TrackballControls.js"></script>
+    <style>
+        body {
+            /* set margin to 0 and overflow to hidden, to go fullscreen */
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="Stats-output">
+    </div>
+    <div id="WebGL-output">
+    </div>
+
+    <script type="text/javascript">
+
+        // once everything is loaded, we run our Three.js stuff.
+        $(function () {
+            COLOR = 0x0F0F0F;
+            SEGMENTS = 30;
+            TILE_SIZE = 25;
+            STEP = 1;
+
+            // create a scene, that will hold all our elements such as objects, cameras and lights.
+            var scene = new THREE.Scene();
+
+            // var axes = new THREE.AxisHelper(30);
+            // scene.add(axes);
+
+            // create a camera, which defines where we're looking at.
+            var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // create a render and set the size
+            var renderer = new THREE.WebGLRenderer();
+            renderer.setClearColor(0xEEEEEE, 1.0);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMapEnabled = true;
+
+            // add spotlight for the shadows
+            var spotLight = new THREE.SpotLight(0xffffff, 7);
+            spotLight.position.set(120, 100, 120);
+            spotLight.castShadow = true;
+            spotLight.target.position.set(0, 20, 0);
+            scene.add(spotLight);
+
+
+            // add the output of the renderer to the html element
+            $("#WebGL-output").append(renderer.domElement);
+
+            var camera_y = 50;
+            var movement = 0;
+            var left = true;
+            var right = false;
+
+            // setup the control gui
+            var controls = new function () {
+                C1 = true;
+                C2 = false;
+                C3 = false;
+                this.field_of_view = 45;
+                this.doll = 45;
+
+                this.to_C1 = function () {
+                    C1 = true;
+                    C2 = false;
+                    C3 = false;
+                }
+
+                this.to_C2 = function () {
+                    C1 = false;
+                    C2 = true;
+                    C3 = false;
+                }
+
+                this.to_C3 = function () {
+                    C1 = false;
+                    C2 = false;
+                    C3 = true;
+                }
+
+                this.updateC1 = function () {
+                    camera1.fov = controls.field_of_view;
+                    camera1.updateProjectionMatrix();
+                }
+
+                this.updateC2 = function () {
+                    camera2.fov = controls.doll;
+                    camera2.updateProjectionMatrix();
+                    camera_y = 100 / (2.0 * Math.tan(0.5 * controls.doll * Math.PI / 180));
+                    helper2.update();
+                }
+
+                this.start_stop = function () {
+                    if (movement == 1) { movement = 0; }
+                    else { movement = 1; }
+                }
+            }
+
+            var gui = new dat.GUI();
+            gui.add(controls, 'to_C1');
+            gui.add(controls, 'field_of_view', 30, 150).onChange(controls.updateC1);
+            gui.add(controls, 'to_C2');
+            gui.add(controls, 'doll', 20, 80).onChange(controls.updateC2);
+            gui.add(controls, 'to_C3');
+            gui.add(controls, 'start_stop').onChange(controls.updateStartStop);
+
+            createBoard();
+            tower = createTower();
+            scene.add(tower);
+
+            var camera1 = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
+            camera1.position.x = -180;
+            camera1.position.y = 70;
+            camera1.position.z = 0;
+            camera1.lookAt(scene.position);
+            scene.add(camera1);
+            physicalCamera1 = createCamera();
+            physicalCamera1.position.set(camera1.position.x, camera1.position.y, camera1.position.z);
+            physicalCamera1.rotation.y = Math.PI / 2;
+            scene.add(physicalCamera1);
+
+            var camera2 = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
+            camera2.position.x = TILE_SIZE / 2;
+            camera2.position.y = tower.position.y;
+            camera2.position.z = 200;
+            camera2.lookAt(tower.position);
+            scene.add(camera2);
+            var helper2 = new THREE.CameraHelper(camera2);
+            helper2.visible = true;
+            scene.add(helper2);
+            physicalCamera2 = createCamera();
+            physicalCamera2.rotation.y = Math.PI;
+            physicalCamera2.position.set(camera2.position.x, camera2.position.y, camera2.position.z);
+            scene.add(physicalCamera2);
+
+            var camera3 = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
+            camera3.position.x = tower.position.x;
+            camera3.position.y = 80;
+            camera3.position.z = 0;
+            camera3.lookAt(tower.position);
+            scene.add(camera3);
+            var helper3 = new THREE.CameraHelper(camera3);
+            helper3.visible = true;
+            scene.add(helper3);
+            physicalCamera3 = createCamera();
+            physicalCamera3.position.set(camera3.position.x, camera3.position.y, camera3.position.z);
+            physicalCamera3.lookAt(tower.position);
+            scene.add(physicalCamera3);
+
+
+
+            function createBoard() {
+                var height = 2;
+                var board_size = 8;
+
+                var cubeGeometry = new THREE.BoxGeometry(TILE_SIZE, height, TILE_SIZE);
+                var cubeMaterialBlack = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+                var cubeMaterialWhite = new THREE.MeshLambertMaterial({ color: 0x0F0F0F });
+
+                var x_start_position = -1 * (TILE_SIZE / 2 + TILE_SIZE * 3);
+                var z_start_position = -1 * (TILE_SIZE / 2 + TILE_SIZE * 3);
+                var x_current = x_start_position;
+                var z_current = z_start_position;
+
+                var white = 1;
+
+                for (var i = 0; i < board_size; i++) {
+                    for (var j = 0; j < board_size; j++) {
+                        if (white == 1) {
+                            var plane = new THREE.Mesh(cubeGeometry, cubeMaterialWhite);
+                            white = 0;
+                        }
+                        else if (white == 0) {
+                            var plane = new THREE.Mesh(cubeGeometry, cubeMaterialBlack);
+                            white = 1;
+                        }
+                        plane.castShadow = true;
+                        plane.receiveShadow = true;
+                        plane.position.x = x_current;
+                        plane.position.y = -height / 2;
+                        plane.position.z = z_current;
+                        x_current += TILE_SIZE;
+                        scene.add(plane);
+
+                    }
+                    x_current = x_start_position
+                    z_current += TILE_SIZE;
+                    if (white == 1) {
+                        white = 0;
+                    }
+                    else {
+                        white = 1;
+                    }
+                }
+
+            }
+
+            function createTower() {
+                var pointsX = [
+                    250, 340, 340, 350, 350, 315,
+                    320, 310, 295, 325, 345, 355,
+                    350, 345, 360, 370, 370, 255];
+                var pointsY = [
+                    70, 55, 80, 55, 100, 125,
+                    145, 160, 166, 306, 311, 326,
+                    341, 351, 356, 366, 386, 386];
+                var points = [];
+                var count = pointsX.length;
+                for (var i = 0; i < count; i++) {
+                    points.push(new THREE.Vector3(25 - pointsX[i] / 10, 0, (1 - pointsY[i] + 100) / 10));
+                }
+
+                var latheGeometry = new THREE.LatheGeometry(points, Math.ceil(SEGMENTS), 0, 2 * Math.PI);
+                latheMesh = createMesh(latheGeometry);
+                latheMesh.rotation.x = -Math.PI / 2;
+                latheMesh.position.x = TILE_SIZE / 2;
+                latheMesh.position.y = 28;
+                latheMesh.position.z = 3 * TILE_SIZE + TILE_SIZE / 2;
+
+                return latheMesh;
+            }
+
+            function createCamera() {
+                var cam_scale = 4;
+                cameraGroup = new THREE.Object3D();
+                cameraBox = new THREE.Mesh(new THREE.CubeGeometry(1 * cam_scale, 2 * cam_scale, 4 * cam_scale), new THREE.MeshLambertMaterial({ color: 0x666666 }));
+                cameraGroup.add(cameraBox);
+                cameraBox.position.set(0 * cam_scale, 0.5 * cam_scale, -2.5 * cam_scale);
+
+                cameraCylinder1 = new THREE.Mesh(new THREE.CylinderGeometry(1 * cam_scale, 1 * cam_scale, 1 * cam_scale), new THREE.MeshLambertMaterial({ color: 0x666666 }));
+                cameraGroup.add(cameraCylinder1);
+                cameraCylinder1.rotation.z = Math.PI / 2;
+                cameraCylinder1.position.set(0 * cam_scale, 1.5 * cam_scale, -1.5 * cam_scale);
+
+                cameraCylinder2 = new THREE.Mesh(new THREE.CylinderGeometry(1 * cam_scale, 1 * cam_scale, 1 * cam_scale), new THREE.MeshLambertMaterial({ color: 0x666666 }));
+                cameraGroup.add(cameraCylinder2);
+                cameraCylinder2.rotation.z = Math.PI / 2;
+                cameraCylinder2.position.set(0 * cam_scale, 1.5 * cam_scale, -3.5 * cam_scale);
+
+                cameraCylinder3 = new THREE.Mesh(new THREE.CylinderGeometry(0.6 * cam_scale, 0.5 * cam_scale, 1 * cam_scale), new THREE.MeshLambertMaterial({ color: 0x777777 }));
+                cameraGroup.add(cameraCylinder3);
+                cameraCylinder3.rotation.x = Math.PI / 2;
+                cameraCylinder3.position.set(0, 0, 0);
+
+                var axes = new THREE.AxisHelper(15);
+                cameraGroup.add(axes);
+
+                return cameraGroup;
+            }
+
+            function createMesh(geom) {
+                var meshMaterial = new THREE.MeshPhongMaterial({ color: COLOR });
+                meshMaterial.side = THREE.DoubleSide;
+
+                var mesh = new THREE.Mesh(geom, meshMaterial);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                return mesh;
+            }
+
+            render();
+            function render() {
+                if (movement) {
+                    if (tower.position.z <= -(TILE_SIZE * 3 + TILE_SIZE / 2)) {
+                        right = true;
+                        left = false;
+                    }
+                    else if (tower.position.z >= TILE_SIZE * 3 + TILE_SIZE / 2) {
+                        left = true;
+                        right = false;
+                    }
+                    if (left) { tower.position.z -= STEP; }
+                    else if (right) { tower.position.z += STEP; }
+                    camera3.lookAt(tower.position);
+                    physicalCamera3.lookAt(tower.position);
+                }
+
+                camera2.position.z = tower.position.z + camera_y;
+                physicalCamera2.position.z = camera2.position.z;
+
+                if (C1) {
+                    renderer.render(scene, camera1);
+                }
+                else if (C2) {
+                    renderer.render(scene, camera2);
+                }
+                else if (C3) {
+                    renderer.render(scene, camera3);
+                }
+                requestAnimationFrame(render);
+            }
+        });
+
+
+    </script>
+</body>
+
+</html>
