@@ -147,7 +147,7 @@
             scene.add(physicalCamera2);
 
             var camera3 = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
-            camera3.position.x = tower.position.x;
+            camera3.position.x = TILE_SIZE//tower.position.x;
             camera3.position.y = 80;
             camera3.position.z = 0;
             camera3.lookAt(tower.position);
@@ -159,8 +159,6 @@
             physicalCamera3.position.set(camera3.position.x, camera3.position.y, camera3.position.z);
             physicalCamera3.lookAt(tower.position);
             scene.add(physicalCamera3);
-
-
 
             function createBoard() {
                 var height = 2;
@@ -283,10 +281,16 @@
                         left = true;
                         right = false;
                     }
-                    if (left) { tower.position.z -= STEP; }
-                    else if (right) { tower.position.z += STEP; }
+
                     camera3.lookAt(tower.position);
                     physicalCamera3.lookAt(tower.position);
+
+                    if (left) {
+                        tower.position.z -= STEP;
+                    }
+                    else if (right) { 
+                        tower.position.z += STEP; 
+                    }
                 }
 
                 camera2.position.z = tower.position.z + camera_y;
